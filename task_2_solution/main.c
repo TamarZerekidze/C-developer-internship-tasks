@@ -2,9 +2,14 @@
 #include <dirent.h>
 #include <stdio.h>
 
+int isHidden(const struct dirent* entry) {
+	return entry->d_name[0] == '.';
+}
+
 void printDIRContents(DIR *dir) {
 	struct dirent* entry;
 	while ((entry = readdir(dir))) {
+		if (isHidden(entry)) continue;
 		printf("%s\n", entry->d_name);
 	}
 }
