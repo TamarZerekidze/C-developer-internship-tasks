@@ -4,6 +4,21 @@
 #include <stdlib.h>
 #include <fcntl.h>
 
+void exec_program(const char *prog) {
+	execl(prog, prog, NULL);
+	perror("execl failed");
+	exit(1);
+}
+
+int my_fork() {
+	const int pid = fork();
+	if (pid == -1) {
+		perror("fork failed");
+		exit(1);
+	}
+	return pid;
+}
+
 int main(int argc, char *argv[]) {
 	if (argc != 5) {
 		exit(1);
@@ -14,10 +29,8 @@ int main(int argc, char *argv[]) {
 	const char *prog3 = argv[3];
 	const char *file = argv[4];
 
-	if (fork() == 0) {
-		execl(prog1, prog1, NULL);
-		perror("execl prog1 failed");
-		exit(1);
+	if (my_fork() == 0) {
+		exec_program(prog1);
 	}
 
 	int status1;
@@ -25,31 +38,36 @@ int main(int argc, char *argv[]) {
 	if (status1 != 0) {
 		exit(1);
 	}
+
 	int fds[2];
-	pipe(fds);
-	if (fork() == 0) {
+    if (pipe(fds) < 0) {
+    	perror("pipe failed");
+    	exit(1);
+    }
+
+	if (my_fork() == 0) {
 		close(fds[0]);
 		dup2(fds[1], 1);
 		close(fds[1]);
-		execl(prog2, prog2, NULL);
-		perror("execl prog2 failed");
-		exit(1);
+		exec_program(prog2);
 	}
-	if (fork() == 0) {
+
+	if (my_fork() == 0) {
 		close(fds[1]);
 		dup2(fds[0], 0);
 		close(fds[0]);
-		const int fd = open(file, O_WRONLY | O_CREAT | O_TRUNC);
+
+		const int fd = open(file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 		if (fd == -1) {
 			perror("open error");
 			exit(1);
 		}
 		dup2(fd, 1);
 		close(fd);
-		execl(prog3, prog3, NULL);
-		perror("execl prog3 failed");
-		exit(1);
+
+		exec_program(prog3);
 	}
+
 	close(fds[0]);
 	close(fds[1]);
 	wait(NULL);
